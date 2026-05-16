@@ -125,6 +125,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
       <button class="tab-btn" data-tab="add" onclick="switchTab('add')">➕ הוסף</button>
       <button class="tab-btn" data-tab="history" onclick="switchTab('history')">📋 היסטוריה</button>
       <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">💡 ניתוח</button>
+      <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">⚙️ הגדרות</button>
     </div>
   </div>
   <div class="content" id="content"></div>
@@ -147,10 +148,11 @@ const store = (() => {
   }
 })();
 
-const USERS = [
+const DEFAULT_USERS = [
   {id:'user1',name:'משתמש א׳',color:'#E8C547',initial:'א'},
   {id:'user2',name:'משתמש ב׳',color:'#5CE8C0',initial:'ב'},
 ];
+let USERS = [...DEFAULT_USERS];
 const CATS = ['🏠 דיור','🍔 אוכל','🚗 תחבורה','🛍️ קניות','💊 בריאות','🎉 בילויים','📚 חינוך','💡 חשבונות','✈️ טיולים','🔧 אחר'];
 
 let S = {
@@ -161,14 +163,16 @@ let S = {
 
 function load() {
   try {
-    const tx=store.get('tx'), bg=store.get('bg');
+    const tx=store.get('tx'), bg=store.get('bg'), un=store.get('users');
     if(tx) S.transactions=JSON.parse(tx);
     if(bg) { S.budget=JSON.parse(bg); S.tmpBudget={...S.budget}; }
+    if(un) USERS=JSON.parse(un);
   } catch(e) {}
 }
 function save() {
   store.set('tx',JSON.stringify(S.transactions));
   store.set('bg',JSON.stringify(S.budget));
+  store.set('users',JSON.stringify(USERS));
 }
 
 const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
@@ -191,7 +195,7 @@ function renderAvatars() {
 function render() {
   const c=document.getElementById('content');
   c.className='content fade-in';
-  c.innerHTML = S.tab==='dashboard'?renderDash():S.tab==='add'?renderAdd():S.tab==='history'?renderHist():renderAnal();
+  c.innerHTML = S.tab==='dashboard'?renderDash():S.tab==='add'?renderAdd():S.tab==='history'?renderHist():S.tab==='settings'?renderSettings():renderAnal();
 }
 
 function renderDash() {
@@ -311,7 +315,51 @@ function txRow(tx,u,del) {
   </div>`;
 }
 
-function setType(t){S.form.type=t;render();}
+function renderSettings() {
+  return `<div class="form-card">
+    <div class="form-title">⚙️ הגדרות</div>
+    <div class="f-group">
+      <div class="sec-title" style="margin-bottom:12px">שמות משתמשים</div>
+      ${USERS.map(u=>`
+        <div style="margin-bottom:12px">
+          <label class="f-label" style="color:${u.color}">
+            <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${u.color}22;border:1.5px solid ${u.color};text-align:center;line-height:20px;font-size:10px;font-weight:700;color:${u.color};margin-left:6px">${u.initial}</span>
+            משתמש ${u.id==='user1'?'1':'2'}
+          </label>
+          <input type="text" id="uname_${u.id}" value="${u.name}" placeholder="שם המשתמש">
+        </div>`).join('')}
+      <button class="submit-btn" onclick="saveNames()" style="margin-top:4px">שמור שמות ✓</button>
+    </div>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #222">
+      <div class="sec-title" style="margin-bottom:12px">תקציב חודשי</div>
+      ${USERS.map(u=>`
+        <div style="margin-bottom:12px">
+          <label class="f-label" style="color:${u.color}">${u.name}</label>
+          <input type="number" inputmode="decimal" id="bgt_${u.id}" value="${S.budget[u.id]}">
+        </div>`).join('')}
+      <button class="submit-btn" onclick="saveBudgetSettings()" style="margin-top:4px">שמור תקציב ✓</button>
+    </div>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #222">
+      <button class="danger-btn" style="margin-top:0" onclick="clearAll()">🗑️ מחיקת כל הנתונים</button>
+    </div>
+  </div>`;
+}
+
+function saveNames() {
+  USERS.forEach(u=>{
+    const el=document.getElementById('uname_'+u.id);
+    if(el&&el.value.trim()) u.name=el.value.trim();
+  });
+  save(); renderAvatars(); render();
+}
+
+function saveBudgetSettings() {
+  USERS.forEach(u=>{
+    const el=document.getElementById('bgt_'+u.id);
+    if(el) S.budget[u.id]=parseFloat(el.value)||0;
+  });
+  S.tmpBudget={...S.budget}; save(); render();
+}
 function setUser(u){S.form.user=u;render();}
 function setCat(c){S.form.cat=c;render();}
 function setFilter(f){S.filter=f;render();}
