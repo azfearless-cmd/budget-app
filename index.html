@@ -136,17 +136,22 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
   <div class="ios-text">📲 להוספה למסך הבית: לחץ <strong>⬆️ שיתוף</strong> ← <strong>"הוסף למסך הבית"</strong></div>
 </div>
 
-<script>
-// Safe storage — localStorage throws on iOS when opening local files
-const store = (() => {
-  try {
-    localStorage.setItem('_t','1'); localStorage.removeItem('_t');
-    return { get: k => { try{return localStorage.getItem(k);}catch(e){return null;} }, set: (k,v) => { try{localStorage.setItem(k,v);}catch(e){} } };
-  } catch(e) {
-    const m={};
-    return { get: k => m[k]||null, set: (k,v) => { m[k]=v; } };
-  }
-})();
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAZ-Wbp8wfjG9avp1-WB-7-yBAPqRR8n7s",
+  authDomain: "budget-app-c0ddc.firebaseapp.com",
+  projectId: "budget-app-c0ddc",
+  storageBucket: "budget-app-c0ddc.firebasestorage.app",
+  messagingSenderId: "80291704204",
+  appId: "1:80291704204:web:3d3f7ee4fa0f3fb0a47aa9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const DATA_DOC = doc(db, 'shared', 'data');
 
 const DEFAULT_USERS = [
   {id:'user1',name:'משתמש א׳',color:'#E8C547',initial:'א'},
@@ -161,19 +166,37 @@ let S = {
   filter:'all', editBudget:false, tmpBudget:{user1:5000,user2:5000},
 };
 
-function load() {
+// מציג מסך טעינה בזמן שמחכים ל-Firebase
+document.getElementById('content').innerHTML = `<div class="empty">⏳ מתחבר...</div>`;
+
+// מאזין לשינויים בזמן אמת — כל שינוי ממשתמש אחר יתעדכן מיד
+onSnapshot(DATA_DOC, snap => {
+  if (snap.exists()) {
+    const d = snap.data();
+    if (d.transactions) S.transactions = d.transactions;
+    if (d.budget) { S.budget = d.budget; S.tmpBudget = {...d.budget}; }
+    if (d.users) USERS = d.users;
+  }
+  renderAvatars();
+  render();
+}, err => {
+  console.error(err);
+  document.getElementById('content').innerHTML = `<div class="empty">❌ שגיאת חיבור<br>בדוק אינטרנט ונסה שוב</div>`;
+});
+
+async function save() {
   try {
-    const tx=store.get('tx'), bg=store.get('bg'), un=store.get('users');
-    if(tx) S.transactions=JSON.parse(tx);
-    if(bg) { S.budget=JSON.parse(bg); S.tmpBudget={...S.budget}; }
-    if(un) USERS=JSON.parse(un);
-  } catch(e) {}
+    await setDoc(DATA_DOC, {
+      transactions: S.transactions,
+      budget: S.budget,
+      users: USERS,
+      updatedAt: Date.now()
+    });
+  } catch(e) { console.error('Save error:', e); }
 }
-function save() {
-  store.set('tx',JSON.stringify(S.transactions));
-  store.set('bg',JSON.stringify(S.budget));
-  store.set('users',JSON.stringify(USERS));
-}
+
+// שמירה מקומית כ-fallback בלבד
+function load() {}
 
 const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
 const spent  = u => S.transactions.filter(t=>t.user===u&&t.type==='expense').reduce((s,t)=>s+t.amount,0);
@@ -360,6 +383,7 @@ function saveBudgetSettings() {
   });
   S.tmpBudget={...S.budget}; save(); render();
 }
+function setType(t){S.form.type=t;render();}
 function setUser(u){S.form.user=u;render();}
 function setCat(c){S.form.cat=c;render();}
 function setFilter(f){S.filter=f;render();}
@@ -383,12 +407,13 @@ function clearAll(){if(confirm('למחוק את כל העסקאות?')){S.transa
 // iOS install hint
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode:standalone)').matches;
-if(isIOS&&!isStandalone&&!store.get('ios-closed')) document.getElementById('ios-banner').classList.add('show');
-function closeBanner(){document.getElementById('ios-banner').classList.remove('show');store.set('ios-closed','1');}
+if(isIOS&&!isStandalone) document.getElementById('ios-banner').classList.add('show');
+function closeBanner(){document.getElementById('ios-banner').classList.remove('show');}
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-load(); renderAvatars(); render();
+// Firebase מאזין בעצמו — אין צורך ב-load() ידני
+renderAvatars();
 </script>
 </body>
 </html>
