@@ -404,6 +404,13 @@ function addTx(){
 function delTx(id){S.transactions=S.transactions.filter(t=>t.id!==id);save();render();}
 function clearAll(){if(confirm('למחוק את כל העסקאות?')){S.transactions=[];save();render();}}
 
+// חשיפת הפונקציות ל-window כדי ש-onclick יעבוד עם type="module"
+Object.assign(window, {
+  switchTab, setType, setUser, setCat, setFilter,
+  startEdit, cancelEdit, saveBudget, saveBudgetSettings,
+  saveNames, addTx, delTx, clearAll, closeBanner
+});
+
 // iOS install hint
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode:standalone)').matches;
